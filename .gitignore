@@ -1,0 +1,13 @@
+.env
+scan_list.txt
+folder_list.txt
+suspicious_targets.txt
+target_scan_list.txt
+triage_req.json
+llm_response.txt
+*.o
+guardian
+protected_app
+qsafe_demo
+*.elf
+deep_core.o
