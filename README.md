@@ -1,3 +1,12 @@
+```text
+   ___       ____  ___    ____________
+  / _ \     / __/ / _ |  / __/ __/ /
+ / // /_____\ \  / __ | / _// _// /__
+/____/_____/___//_/ |_|/_/ /___/____/
+
+       IRON SENTINEL v4
+```
+
 # Q-SAFE: IRON SENTINEL (v4 Real Mode)
 
 ## Overview
@@ -58,6 +67,35 @@ The system relies on three distinct layers working in unison:
         *   **Local Signatures**: Checks for known malicious strings (e.g., "delete the system logs", "deep_core").
         *   **Deep AI Scan**: Validates content with Mistral-7b (if configured).
     *   **Neutralization**: If unsafe, the user is prompted to delete. Upon deletion, the Core Memory is re-verified.
+
+---
+
+## Usage Demo
+
+When executed, the Iron Sentinel performs a comprehensive system scan and triage. Below is an example of a typical session:
+
+```text
+[+] BOOT: IRON SENTINEL (v4 Real Mode)
+[+] SYSTEM: 4 Logical Cores Detected.
+[+] REGISTER: RFLAGS Verified.
+[1/3] GLOBAL DISCOVERY (Filesystem Map)
+    > Scanning root filesystem...
+    > Found 32,541 potential vectors.
+    > Discovery Complete.
+[2/3] AGENTIC TRIAGE (Python Neural Agent)
+    > Handing off to Neural Agent...
+    > Agent: Analyzing 3254 zones...
+    > Agent: Cloud AI Unstable (Fallback: Local Heuristics Engaged)
+    > Agent: Identified 12 High-Risk Zones (e.g., /home/user/Desktop/Q-SAFE_POC).
+    > Targets: 3 suspicious files locked.
+[3/3] DEEP CORE ANALYSIS (Bit-Level Scan)
+    > Target: /home/user/Desktop/Q-SAFE_POC/attack.txt
+    > Reading 63 bytes...
+    > ALERT: Malicious Pattern "delete the system logs" Detected!
+    > NEUTRALIZE /home/user/Desktop/Q-SAFE_POC/attack.txt? (y/n): y
+    > [!] TARGET ELIMINATED.
+    > [!] CORE MEMORY INTEGRITY CHECK... OK.
+```
 
 ---
 
