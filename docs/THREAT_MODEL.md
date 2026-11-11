@@ -8,6 +8,7 @@ Q-SAFE is a defensive endpoint file-triage prototype. It inspects files as data,
 - Obfuscated/dynamically executed scripts.
 - Packed or encrypted executable candidates (heuristic only).
 - File mutation or replacement that changes a recorded cryptographic identity.
+- Basic Python source obfuscation through identifier and whitespace changes, using normalized AST structure and API-call features.
 - Reversible evidence preservation for investigation.
 
 ## Out of scope for this MVP
