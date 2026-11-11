@@ -1,17 +1,13 @@
-all: qsafe_demo protected_app
+.PHONY: test scan clean
 
-qsafe_demo: qsafe_monitor.o qsafe_driver.o
-	gcc -no-pie -o qsafe_demo qsafe_driver.o qsafe_monitor.o
+PYTHON ?= python3
+PATHS ?= .
 
-protected_app: qsafe_monitor.o protected_app.c
-	# Compiling with protections DISABLED to allow simple buffer overflow
-	gcc -no-pie -fno-stack-protector -z execstack -o protected_app protected_app.c qsafe_monitor.o
+test:
+	PYTHONPATH=. $(PYTHON) -m unittest discover -s tests -v
 
-qsafe_monitor.o: qsafe_monitor.asm
-	nasm -f elf64 -o qsafe_monitor.o qsafe_monitor.asm
-
-qsafe_driver.o: qsafe_driver.c
-	gcc -c qsafe_driver.c -o qsafe_driver.o
+scan:
+	PYTHONPATH=. $(PYTHON) -m q_safe.cli scan $(PATHS) --json reports/scan.jsonl
 
 clean:
-	rm -f *.o qsafe_demo allowlist.bin
+	rm -rf __pycache__ q_safe/__pycache__ tests/__pycache__
