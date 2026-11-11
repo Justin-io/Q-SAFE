@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qsafe-defender"
+version = "1.1.0"
+description = "Local-first static malware triage and reversible quarantine"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+dashboard = ["streamlit>=1.35"]
+fuzzy = ["ssdeep"]
+
+[project.scripts]
+qsafe = "qsafe:main"
+
+[tool.setuptools]
+py-modules = ["qsafe", "qsafe_extras"]
