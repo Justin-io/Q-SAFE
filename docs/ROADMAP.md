@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Phase 1 — Safe static MVP
-Bounded file sampling, cryptographic/sample hash labeling, file-type hints, entropy, explainable indicators, bounded traversal, JSONL reporting, reversible quarantine, unit tests, CI.
+Bounded file sampling, cryptographic/sample hash labeling, file-type hints, entropy, explainable indicators, normalized Python AST features, file identity baselines, bounded traversal, JSONL reporting, reversible quarantine, unit tests, CI.
 
 ## Phase 2 — Mutation and provenance
 Baseline manifest (path, device/inode, size, mtime, full SHA-256, signer/package provenance); inotify/watchdog event stream; alerts on replacement and unexpected executable permission/persistence changes.
