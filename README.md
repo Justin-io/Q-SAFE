@@ -1,154 +1,168 @@
-```text
-   ___       ____  ___    ____________
-  / _ \     / __/ / _ |  / __/ __/ /
- / // /_____\ \  / __ | / _// _// /__
-/____/_____/___//_/ |_|/_/ /___/____/
+# Q-SAFE — Local-First Malware Triage & Defense
 
-       IRON SENTINEL v4
-```
+Q-SAFE is a defensive local-first file inspection tool. It combines static file-format inspection, entropy and packing indicators, suspicious API/string analysis, script heuristics, polling-based change monitoring, and SHA-256-verified quarantine.
 
-# Q-SAFE: IRON SENTINEL (v4 Real Mode)
+**It does not execute inspected samples and does not claim that a heuristic score proves malware.** Polymorphic malware mutates its representation; hashes and fixed signatures alone are insufficient. Q-SAFE therefore reports a *polymorphic candidate* only when executable-format and packing/entropy signals converge. That result is a triage lead, not proof.
 
-## Overview
-**Q-SAFE (Quantum-Secure Agentic Framework Environment)** is a hybrid security sentinel designed to operate with "Kernel-Like" authority in user space. It combines the raw speed and hardware control of **x86_64 Assembly** with the cognitive planning capabilities of a **Python-based Neural Agent**.
+## Capabilities
 
-This Proof-of-Concept (POC) demonstrates a "Real Mode" security agent that robustly verifies CPU integrity, maps the entire filesystem, intelligently triages high-risk zones, and performs bit-level deep content analysis to neutralize threats.
+- Read-only recursive scan of files/directories; does not follow symlinks; 64 MiB per-file ceiling.
+- SHA-256, format identification, entropy, basic PE section inspection and ELF load-segment checks.
+- Script, embedded API, persistence, process-manipulation, anti-analysis and packer indicators.
+- Explainable score with four levels: no-known-indicators, review, suspicious, high-risk.
+- User-launched polling monitor that records created/modified/deleted-or-moved events as JSONL.
+- Explicit, reversible quarantine with confirmation, private directory permissions and post-move digest verification.
+- JSON reports for dashboards and offline evaluation.
 
-## Architecture: The Hybrid Trinity
+## Requirements and quick start
 
-The system relies on three distinct layers working in unison:
+Python 3.10+; standard library only for core scanning. Optional integrations require their own tools. No root privileges required for user-owned paths.
 
-### 1. The Iron Core (x86_64 Assembly)
-*   **File**: `guardian.asm`
-*   **Role**: The Body & Enforcer.
-*   **Functionality**:
-    *   Manages the Process Lifecycle and Memory.
-    *   Performs low-level **CPU Register Integrity Checks** (RFLAGS, CS Segment verification).
-    *   Executes system calls for fast filesystem discovery (`find`).
-    *   Handles file I/O for Deep Scanning (`fopen`, `fread`).
-    *   **Direct Neutralization**: Deletes malicious files (`unlink` syscall) and immediately verifies core memory stability.
+~~~sh
+git clone https://github.com/Justin-io/Q-SAFE.git
+cd Q-SAFE
+python3 qsafe.py scan ./samples --archives --json reports/scan.json
+python3 qsafe.py scan ./one-file
+~~~
 
-### 2. The Neural Agent (Python)
-*   **File**: `agent_triage.py`
-*   **Role**: The Mind & Strategist.
-*   **Functionality**:
-    *   **Hierarchical Scanning**: Instead of drowning in file lists, it clusters thousands of files into "Context Zones" (Folders).
-    *   **Agentic Logic**: Analyzes directory names to identify high-risk targets (e.g., `/home/user/Desktop`, `/tmp`, temporary pip build artifacts).
-    *   **Resilient Fallback**: If the Cloud AI connection is unstable, it engages local heuristic algorithms to ensure threats are never ignored.
+Exit status: 0 = no high-risk findings, 1 = one or more high-risk findings, 2 = operational error.
 
-### 3. The Neural Ops (Cloud AI)
-*   **Integration**: OpenRouter API
-*   **Models**: `google/gemini-2.0-flash-exp` (Triage), `mistralai/mistral-7b-instruct` (Deep Analysis).
-*   **Role**: Advanced Pattern Recognition. It decides *which* zones look suspicious based on semantic understanding, not just signatures.
+### Monitor
 
----
+~~~sh
+python3 qsafe.py monitor ~/Downloads --interval 3
+~~~
 
-## Workflow: The Agentic Loop
+This is a user-space polling monitor, not a kernel sensor or guaranteed real-time EDR feed. Stop with Ctrl-C. Default event log: ~/.local/state/qsafe/events.jsonl.
 
-1.  **Initialization & Integrity**:
-    *   The Sentinel boots and immediately snapshots the CPU state.
-    *   It verifies that the Code Segment (CS) and Ring 3 privileges are valid and that the NX (No-Execute) bit safeguards are active (simulated via segment checks).
 
-2.  **Global Discovery**:
-    *   The system executes a real-time traversal of the **entire root filesystem**, mapping every executable, script, and code file (`.py`, `.sh`, `.elf`, `.exe`, `.cpp`, `.asm`, `.txt`).
-    *   Result: `scan_list.txt` (typically 30,000+ files).
+### Multi-engine analysis
 
-3.  **Hierarchical Triage (Hand-off)**:
-    *   Control is passed to the Python Agent.
-    *   The Agent reduces the massive list into "Zones" (Directories).
-    *   It selects **High-Risk Zones** for inspection (e.g., `mitmproxy` folders, Desktop, Downloads).
-    *   It generates a targeted vector list: `suspicious_targets.txt`.
+Q-SAFE can call optional local analysis tools. It does not upload samples or make network requests.
 
-4.  **Deep Code Analysis**:
-    *   Control returns to the Assembly Core.
-    *   The Sentinel iterates through the target vectors one by one.
-    *   **Inspection**: It opens files and reads raw bytes.
-    *   **Detection**:
-        *   **Local Signatures**: Checks for known malicious strings (e.g., "delete the system logs", "deep_core").
-        *   **Deep AI Scan**: Validates content with Mistral-7b (if configured).
-    *   **Neutralization**: If unsafe, the user is prompted to delete. Upon deletion, the Core Memory is re-verified.
+~~~sh
+# Install the tools separately using their official installation instructions.
+python3 qsafe.py scan ./samples --archives --yara-rules rules/qsafe_heuristics.yar
+python3 qsafe.py scan ./samples --clamav
+python3 qsafe.py scan ./samples --capa
+python3 qsafe.py scan ./samples --archives --yara-rules rules/qsafe_heuristics.yar --clamav --capa --json reports/deep-scan.json
+~~~
 
----
+- YARA applies the selected local source rules. The bundled rules are deliberately labelled low/medium confidence and are triage clues, not verdicts.
+- ClamAV contributes an independent signature engine when clamscan and current signatures are installed. A confirmed signature match raises the Q-SAFE item to high risk.
+- Mandiant capa describes capabilities found through static analysis. Its capability output is included for analyst review and is not converted directly into a malware verdict.
+- Archive inspection reads bounded ZIP/TAR members in memory; it never extracts member paths. Entry count, member size, total expansion and nesting depth are limited.
 
-## Usage Demo
+### File integrity baseline
 
-When executed, the Iron Sentinel performs a comprehensive system scan and triage. Below is an example of a typical session:
+~~~sh
+python3 qsafe.py baseline-create /path/to/application --output ~/.local/state/qsafe/app-baseline.json
+python3 qsafe.py baseline-check /path/to/application --baseline ~/.local/state/qsafe/app-baseline.json
+~~~
 
-```text
-[+] BOOT: IRON SENTINEL (v4 Real Mode)
-[+] SYSTEM: 4 Logical Cores Detected.
-[+] REGISTER: RFLAGS Verified.
-[1/3] GLOBAL DISCOVERY (Filesystem Map)
-    > Scanning root filesystem...
-    > Found 32,541 potential vectors.
-    > Discovery Complete.
-[2/3] AGENTIC TRIAGE (Python Neural Agent)
-    > Handing off to Neural Agent...
-    > Agent: Analyzing 3254 zones...
-    > Agent: Cloud AI Unstable (Fallback: Local Heuristics Engaged)
-    > Agent: Identified 12 High-Risk Zones (e.g., /home/user/Desktop/Q-SAFE_POC).
-    > Targets: 3 suspicious files locked.
-[3/3] DEEP CORE ANALYSIS (Bit-Level Scan)
-    > Target: /home/user/Desktop/Q-SAFE_POC/attack.txt
-    > Reading 63 bytes...
-    > ALERT: Malicious Pattern "delete the system logs" Detected!
-    > NEUTRALIZE /home/user/Desktop/Q-SAFE_POC/attack.txt? (y/n): y
-    > [!] TARGET ELIMINATED.
-    > [!] CORE MEMORY INTEGRITY CHECK... OK.
-```
+The baseline reports added, modified and removed files by SHA-256. Protect the baseline file separately; a local baseline is not cryptographically signed or tamper-proof. When the optional ssdeep module and its system library are installed, individual samples can also be compared for fuzzy similarity:
 
----
+~~~sh
+python3 qsafe.py similarity ./sample-A.exe ./sample-B.exe
+~~~
 
-## Installation & Usage
+A similarity score helps cluster near-duplicates; it does not establish common lineage or maliciousness.
 
-### Prerequisites
-*   Linux Environment (Parrot OS / Kali / Ubuntu compatible)
-*   `nasm` (Netwide Assembler)
-*   `gcc` (GNU Compiler Collection)
-*   `python3`
-*   `curl`
+### Linux runtime memory-map observer
 
-### Compilation
-The project includes a `run.sh` script, or you can compile manually:
-```bash
-nasm -f elf64 guardian.asm -o guardian.o
-gcc guardian.o -o guardian -no-pie
-```
+~~~sh
+python3 qsafe.py runtime-watch --interval 3
+python3 qsafe.py runtime-watch --pid 1234 --once
+~~~
 
-### Execution
-To run the Sentinel in Real Mode, you need an OpenRouter API key (optional for local heuristics).
+This observes readable Linux procfs mappings and reports executable writable pages, anonymous executable mappings, executable memfd mappings, deleted-but-still-mapped objects, and executable mappings from common temporary directories. JIT engines and legitimate protected software can exhibit similar behaviour. It never terminates processes or changes memory permissions. It is a user-space observer, not eBPF, a kernel sensor, or complete behavioural sandboxing.
 
-```bash
-# Export Key (Optional, for Full Cloud AI Intelligence)
-export OPENROUTER_KEY=your_actual_key_here
+### Quarantine and restore
 
-# Launch (Heuristics will auto-engage if key is invalid/test)
-./guardian
-```
+~~~sh
+python3 qsafe.py quarantine /path/to/suspicious-file
+python3 qsafe.py quarantine-list
+python3 qsafe.py restore QUARANTINE_ID
+~~~
 
-## Technical Details
+Quarantine is a separate operation and requires typing QUARANTINE. The file is moved, never executed or automatically deleted. Restore checks its SHA-256 and refuses to overwrite an existing destination.
 
-### CPU Integrity Check (Assembly)
-The agent ensures it hasn't been tampered with or hooked by a rootkit by verifying the processor flags.
-```nasm
-verify_integrity:
-    pushfq                  ; Push RFLAGS
-    pop rax
-    mov rax, cs             ; Check Code Segment
-    test rax, 3             ; Verify User Mode (RPL 3)
-    jz .cpu_fail            ; Panic if anomaly detected
-    test rax, 7             ; Mask check
-    jnz .ok
-```
+### Optional dashboard
 
-### The "Deep Agent" Logic (Python)
-The triage agent uses path analysis to avoid wasting resources on system directories (like `/proc`).
-```python
-# Clustering logic in agent_triage.py
-folders = sorted(list(set([os.path.dirname(f) for f in files])))
-# Heuristic Fallback
-sus_folders = [f for f in folders if "Desktop" in f or "tmp" in f]
-```
+The old dashboard displayed random industrial telemetry and fabricated security events. It has been replaced with a real local scan UI. Install Streamlit only when needed:
 
-## Disclaimer
-This is a **Proof of Concept**. While it operates on real files and performs real deletions, it is intended for educational and research purposes in controlled environments. Be careful when neutralizing files, as they are permanently removed.
+~~~sh
+python3 -m pip install streamlit
+streamlit run dashboard.py
+~~~
+
+### Measured evaluation
+
+Use a local, labelled CSV manifest to calculate the confusion matrix, precision, recall, specificity, F1 and per-family recall:
+
+~~~csv
+path,label,family
+samples/known-good.exe,benign,
+samples/family-a-variant-01.exe,malicious,family-a
+samples/family-a-variant-02.exe,malicious,family-a
+~~~
+
+~~~sh
+python3 qsafe_eval.py data/manifest.csv --threshold 40 --json reports/evaluation.json
+~~~
+
+Keep the evaluation corpus outside Git. Separate tuning and held-out corpora by malware family and source to avoid near-duplicate leakage. The score threshold is not a calibrated probability. See data/README.md for the manifest contract.
+
+### Tests
+
+~~~sh
+python3 -m unittest discover -s tests -v
+~~~
+
+## Polymorphic detection strategy and limits
+
+Q-SAFE correlates executable format/structure, high-entropy regions, packer indicators, overlays, unusual writable+executable sections, suspicious imports/strings and script-level obfuscation/dynamic execution/persistence/network/process manipulation. Entropy by itself is not treated as malware. Legitimate installers, games, compressed files, protected software and encrypted data can exhibit these traits; sophisticated malware can evade them.
+
+This release is a first static-analysis and user-space observation baseline, **not a validated ML classifier or production EDR**. Before claiming detection efficacy, evaluate against a labelled benign/malicious corpus spanning multiple families and variants. Publish precision, recall, false-positive rate, false-negative rate, family coverage and test-set provenance. Dynamic confirmation requires a disposable isolated VM/sandbox with snapshots, no shared folders and controlled networking. A strong unpacking analytic correlates memory allocation/protection changes with subsequent execution or injection from non-image-backed memory; Q-SAFE's procfs observer only surfaces selected mapping states and does not implement that full analytic.
+
+## Architecture
+
+~~~text
+User-selected files / directories
+             |
+             v
+     Safe file collector
+   (no symlinks; size ceiling)
+             |
+             v
+    Static feature extraction
+   SHA256 | entropy | PE/ELF
+             |
+             v
+ Explainable heuristic correlation
+ scripts | APIs | packing | persistence
+       |                   |
+       v                   v
+ JSON/CLI report       Polling monitor
+                           |
+                           v
+                  Changed-file triage
+                           |
+                           v
+             Explicit quarantine / restore
+~~~
+
+## Historical prototype warning
+
+Do not run the old guardian.asm or original run.sh on a production system. The legacy workflow traversed the filesystem broadly and contained a direct unlink deletion path. The new launcher and Makefile do not build or invoke it. Historical C/assembly control-flow-hashing and intentionally vulnerable buffer-overflow demo files remain research artefacts only; they are not part of the new scanner or its security boundary.
+
+For safe operation, use least privilege, begin with read-only scans, do not open suspicious files, and do not use heuristic scores as the sole reason to delete or block software. See SECURITY.md.
+
+
+## Upstream references
+
+- MITRE ATT&CK, Software Packing (T1027.002): https://attack.mitre.org/techniques/T1027/002/
+- MITRE ATT&CK, Obfuscated Files and Information: https://attack.mitre.org/techniques/T1027/
+- YARA command-line documentation: https://yara.readthedocs.io/en/latest/commandline.html
+- Mandiant FLARE capa: https://mandiant.github.io/capa/
+- capa usage and JSON output: https://github.com/mandiant/capa/blob/master/doc/usage.md

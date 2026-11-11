@@ -1,17 +1,16 @@
-all: qsafe_demo protected_app
+PYTHON ?= python3
+.PHONY: help scan monitor test
+help:
+	@echo "make scan TARGET=./samples | make monitor TARGET=~/Downloads | make test"
+scan:
+	@test -n "$(TARGET)" || (echo "Set TARGET=path"; exit 2)
+	$(PYTHON) qsafe.py scan "$(TARGET)" --json reports/latest.json
+monitor:
+	@test -n "$(TARGET)" || (echo "Set TARGET=directory"; exit 2)
+	$(PYTHON) qsafe.py monitor "$(TARGET)"
+test:
+	$(PYTHON) -m unittest discover -s tests -v
 
-qsafe_demo: qsafe_monitor.o qsafe_driver.o
-	gcc -no-pie -o qsafe_demo qsafe_driver.o qsafe_monitor.o
-
-protected_app: qsafe_monitor.o protected_app.c
-	# Compiling with protections DISABLED to allow simple buffer overflow
-	gcc -no-pie -fno-stack-protector -z execstack -o protected_app protected_app.c qsafe_monitor.o
-
-qsafe_monitor.o: qsafe_monitor.asm
-	nasm -f elf64 -o qsafe_monitor.o qsafe_monitor.asm
-
-qsafe_driver.o: qsafe_driver.c
-	gcc -c qsafe_driver.c -o qsafe_driver.o
-
-clean:
-	rm -f *.o qsafe_demo allowlist.bin
+evaluate:
+	@test -n "$(MANIFEST)" || (echo "Set MANIFEST=path/to/manifest.csv"; exit 2)
+	$(PYTHON) qsafe_eval.py "$(MANIFEST)" --json reports/evaluation.json
