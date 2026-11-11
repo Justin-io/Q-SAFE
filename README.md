@@ -9,6 +9,8 @@ Q-SAFE is an early-stage defensive endpoint-security project. The active impleme
 - Static analysis without importing, sourcing, or executing scanned files.
 - SHA-256 identity (sample-qualified when a file exceeds the 8 MiB inspection limit).
 - File-type hints, byte entropy, packer markers, and suspicious script indicators.
+- A mutation-tolerant Python AST feature sketch that survives basic identifier/whitespace changes.
+- A local identity baseline that reports new, changed, missing, and permission-changed files.
 - Bounded directory traversal that avoids symlinks and excludes pseudo-filesystems.
 - JSONL reports and reversible quarantine with integrity-checked restore.
 - Unit tests and GitHub Actions CI.
@@ -20,6 +22,8 @@ Requires Python 3.10+.
 ```bash
 python -m q_safe.cli analyze ./sample.py
 python -m q_safe.cli scan ~/Downloads ~/Desktop --json reports/scan.jsonl
+python -m q_safe.cli baseline ~/bin ~/.local/bin --output qsafe-baseline.json
+python -m q_safe.cli check qsafe-baseline.json ~/bin ~/.local/bin
 python -m unittest discover -s tests -v
 ```
 
@@ -34,7 +38,7 @@ Do not run routine scans as root. Q-SAFE never automatically deletes files or ki
 
 ## Polymorphic malware: engineering approach
 
-A polymorphic sample can change its byte-level representation while preserving behavior. Exact hashes and fixed strings cannot solve this. A mature Q-SAFE detector must correlate normalized executable semantics (imports, strings, opcode/basic-block and control-flow features), packer/section indicators, runtime behavior (process ancestry, persistence writes, privilege changes and network activity), and provenance/reputation. It must be measured against labeled samples with family/time-separated evaluation and published false-positive/false-negative rates. Entropy alone is not a malware verdict.
+A polymorphic sample can change its byte-level representation while preserving behavior. Exact hashes and fixed strings cannot solve this. The MVP adds a normalized Python AST sketch (node-type counts, import names, and API call names) that is invariant to simple variable renaming and whitespace changes, plus file baselines for host-side mutation alerts. This is not deep semantic equivalence and can be evaded by structural rewrites. A mature Q-SAFE detector must correlate normalized executable semantics (imports, strings, opcode/basic-block and control-flow features), packer/section indicators, runtime behavior (process ancestry, persistence writes, privilege changes and network activity), and provenance/reputation. It must be measured against labeled samples with family/time-separated evaluation and published false-positive/false-negative rates. Entropy alone is not a malware verdict.
 
 See [Threat Model](docs/THREAT_MODEL.md) and [Roadmap](docs/ROADMAP.md).
 
