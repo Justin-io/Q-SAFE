@@ -18,9 +18,11 @@ def dotted_name(node: ast.AST) -> str:
 
 def python_features(source: bytes) -> dict:
     """Return a stable feature sketch, normalizing identifiers and literal values."""
+    if len(source) > 1024 * 1024:
+        return {"parsed":False,"fingerprint":None,"node_counts":{},"imports":[],"calls":[],"risk_score":0,"indicators":[]}
     try:
         tree=ast.parse(source.decode("utf-8",errors="replace"))
-    except (SyntaxError, ValueError, MemoryError):
+    except (SyntaxError, ValueError, MemoryError, RecursionError):
         return {"parsed":False,"fingerprint":None,"node_counts":{},"imports":[],"calls":[],"risk_score":0,"indicators":[]}
     nodes=Counter(type(n).__name__ for n in ast.walk(tree))
     imports=set(); calls=set()
