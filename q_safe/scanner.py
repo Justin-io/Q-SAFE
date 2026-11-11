@@ -9,7 +9,7 @@ def scan(roots: list[str], output: str | None = None, max_files: int = 10000, ma
     results=[]; seen=0
     for raw in roots:
         root=Path(raw).expanduser()
-        if not root.exists(): continue
+        if not root.exists() or root.is_symlink(): continue
         candidates=[root] if root.is_file() else (Path(base)/name for base,dirs,names in os.walk(root,followlinks=False) for name in names)
         for p in candidates:
             try:
