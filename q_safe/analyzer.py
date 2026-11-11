@@ -5,6 +5,7 @@ from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
+from .semantic import python_features
 
 MAX_SAMPLE = 8 * 1024 * 1024
 SUSPICIOUS_STRINGS = {
@@ -39,6 +40,7 @@ class Analysis:
     verdict: str
     findings: list[Finding]
     errors: list[str]
+    semantic: dict[str, Any]
     def to_dict(self) -> dict[str, Any]: return asdict(self)
 
 def entropy(data: bytes) -> float:
@@ -60,14 +62,15 @@ def analyze_file(path: str | Path) -> Analysis:
     try:
         st=p.lstat()
         if stat.S_ISLNK(st.st_mode):
-            return Analysis(str(p),"",0,"symbolic link",0,0,"REVIEW",[],["symlink is not followed"])
+            return Analysis(str(p),"",0,"symbolic link",0,0,"REVIEW",[],["symlink is not followed"],{})
         if not stat.S_ISREG(st.st_mode):
-            return Analysis(str(p),"",st.st_size,"non-regular",0,0,"SKIPPED",[],["not a regular file"])
+            return Analysis(str(p),"",st.st_size,"non-regular",0,0,"SKIPPED",[],["not a regular file"],{})
         with p.open("rb") as f: data=f.read(MAX_SAMPLE+1)
         truncated=len(data)>MAX_SAMPLE; sample=data[:MAX_SAMPLE]
         digest=hashlib.sha256(sample).hexdigest()
         file_hash=("sampled-sha256:"+digest) if truncated else digest
         typ=identify(sample); ent=entropy(sample[:1024*1024]); lower=sample.lower()
+        semantic = python_features(sample) if p.suffix.lower()==".py" or sample.startswith(b"#!/usr/bin/env python") else {}
         if truncated: findings.append(Finding("SAMPLE_TRUNCATED","info",0,"Only first 8 MiB inspected; hash is sample-only"))
         if typ in ("ELF executable","PE/Windows executable"):
             findings.append(Finding("EXECUTABLE_FORMAT","info",0,f"Executable format: {typ}"))
@@ -79,10 +82,13 @@ def analyze_file(path: str | Path) -> Analysis:
             if needle in lower: findings.append(Finding("SUSPICIOUS_STRING","medium",weight,f"Indicator present: {needle.decode(errors='replace')}"))
         for rx,weight,detail in SCRIPT_PATTERNS:
             if rx.search(sample): findings.append(Finding("SCRIPT_BEHAVIOR","high" if weight>=18 else "medium",weight,detail))
+        if semantic.get("parsed"):
+            if semantic.get("fingerprint"): findings.append(Finding("PYTHON_AST_FINGERPRINT","info",0,"Normalized Python AST fingerprint available; useful across identifier/whitespace mutations"))
+            if semantic.get("risk_score",0): findings.append(Finding("PYTHON_SEMANTIC_BEHAVIOR","high",semantic["risk_score"],"; ".join(semantic.get("indicators",[]))))
         if st.st_mode & 0o111: findings.append(Finding("EXECUTABLE_PERMISSION","info",3,"Executable permission bit is set"))
         score=min(100,sum(x.score for x in findings))
         verdict="HIGH_RISK" if score>=45 else "SUSPICIOUS" if score>=20 else "REVIEW" if score>=8 else "NO_STATIC_INDICATORS"
         if typ in ("ELF executable","PE/Windows executable") and verdict=="NO_STATIC_INDICATORS": verdict="REVIEW"
-        return Analysis(str(p),file_hash,st.st_size,typ,round(ent,3),score,verdict,findings,[])
+        return Analysis(str(p),file_hash,st.st_size,typ,round(ent,3),score,verdict,findings,[],semantic)
     except OSError as e:
-        return Analysis(str(p),"",0,"unreadable",0,0,"ERROR",[],[str(e)])
+        return Analysis(str(p),"",0,"unreadable",0,0,"ERROR",[],[str(e)],{})
