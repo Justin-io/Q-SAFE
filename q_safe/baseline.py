@@ -13,6 +13,7 @@ def build(paths: list[str]) -> dict:
     entries={}
     for raw in paths:
         p=Path(raw).expanduser()
+        if p.is_symlink(): continue
         candidates=[p] if p.is_file() and not p.is_symlink() else (
             Path(base)/name for base,dirs,names in os.walk(p,followlinks=False) for name in names
         ) if p.is_dir() else []
