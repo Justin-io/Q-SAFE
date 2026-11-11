@@ -23,5 +23,11 @@ class QuarantineTests(unittest.TestCase):
    f.write_text("two")
    changes=compare(str(manifest),[str(root)])
    self.assertIn("CONTENT_CHANGED",[x["change"] for x in changes])
+ def test_baseline_does_not_follow_symlink_root(self):
+  with tempfile.TemporaryDirectory() as d:
+   root=Path(d); target=root/"real"; target.mkdir(); (target/"item").write_text("x")
+   link=root/"linked"; link.symlink_to(target, target_is_directory=True)
+   manifest=root/"empty.json"; report=save(str(manifest),[str(link)])
+   self.assertEqual(report["files"],0)
 
 if __name__=="__main__": unittest.main()
