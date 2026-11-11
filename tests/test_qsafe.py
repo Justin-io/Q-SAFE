@@ -1,5 +1,5 @@
 import unittest
-from qsafe import analyse_bytes, entropy, file_format
+from qsafe import analyse_bytes, entropy, file_format, quarantine_file, restore_item
 
 class QSafeTests(unittest.TestCase):
     def test_entropy_bounds(self):
@@ -25,6 +25,28 @@ class QSafeTests(unittest.TestCase):
     def test_entropy_alone_not_polymorphic(self):
         result = analyse_bytes(bytes(range(256))*32, "random.dat")
         self.assertFalse(result["polymorphic_candidate"])
+
+    def test_quarantine_and_restore_round_trip(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            original = root / "sample.txt"
+            original.write_text("harmless sample", encoding="utf-8")
+            manifest = quarantine_file(original, root / "quarantine", confirmed=True)
+            self.assertFalse(original.exists())
+            restored = restore_item(manifest["id"], root / "quarantine")
+            self.assertEqual(restored.read_text(encoding="utf-8"), "harmless sample")
+
+    def test_quarantine_requires_explicit_confirmation(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as directory:
+            original = Path(directory) / "sample.txt"
+            original.write_text("unchanged", encoding="utf-8")
+            with self.assertRaises(PermissionError):
+                quarantine_file(original, Path(directory) / "store", confirmed=False)
+            self.assertEqual(original.read_text(encoding="utf-8"), "unchanged")
 
 if __name__ == "__main__":
     unittest.main()

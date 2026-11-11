@@ -10,3 +10,7 @@ monitor:
 	$(PYTHON) qsafe.py monitor "$(TARGET)"
 test:
 	$(PYTHON) -m unittest discover -s tests -v
+
+evaluate:
+	@test -n "$(MANIFEST)" || (echo "Set MANIFEST=path/to/manifest.csv"; exit 2)
+	$(PYTHON) qsafe_eval.py "$(MANIFEST)" --json reports/evaluation.json

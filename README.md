@@ -96,6 +96,23 @@ python3 -m pip install streamlit
 streamlit run dashboard.py
 ~~~
 
+### Measured evaluation
+
+Use a local, labelled CSV manifest to calculate the confusion matrix, precision, recall, specificity, F1 and per-family recall:
+
+~~~csv
+path,label,family
+samples/known-good.exe,benign,
+samples/family-a-variant-01.exe,malicious,family-a
+samples/family-a-variant-02.exe,malicious,family-a
+~~~
+
+~~~sh
+python3 qsafe_eval.py data/manifest.csv --threshold 40 --json reports/evaluation.json
+~~~
+
+Keep the evaluation corpus outside Git. Separate tuning and held-out corpora by malware family and source to avoid near-duplicate leakage. The score threshold is not a calibrated probability. See data/README.md for the manifest contract.
+
 ### Tests
 
 ~~~sh

@@ -322,9 +322,17 @@ def quarantine_file(path: Path, store: Path = STORE, confirmed: bool = False):
         _move_verified(path, payload, manifest["sha256"])
         (folder / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         os.chmod(folder / "manifest.json", 0o600)
-    except Exception:
+    except Exception as original_error:
+        rollback_error = None
         if payload.exists() and not path.exists():
-            os.replace(payload, path)
+            try:
+                _move_verified(payload, path, manifest["sha256"])
+            except Exception as exc:
+                rollback_error = exc
+        if payload.exists() and not path.exists():
+            # Preserve the sample in quarantine rather than deleting the only
+            # verified copy if rollback cannot be completed.
+            raise OSError(f"metadata/rollback failure; sample preserved at {payload}; rollback error: {rollback_error}") from original_error
         shutil.rmtree(folder, ignore_errors=True)
         raise
     return manifest
@@ -499,13 +507,15 @@ def cmd_similarity(args):
     except ImportError:
         print("ssdeep Python module is not installed. Install the optional ssdeep package and system libfuzzy.", file=sys.stderr)
         return 2
-    first = scan_file(Path(args.first).expanduser())
-    second = scan_file(Path(args.second).expanduser())
+    first_path = Path(args.first).expanduser()
+    second_path = Path(args.second).expanduser()
+    first = scan_file(first_path)
+    second = scan_file(second_path)
     if first["status"] != "scanned" or second["status"] != "scanned":
         print("Both inputs must be readable regular files within the scan size limit.", file=sys.stderr)
         return 2
-    left = first.get("fuzzy_hash", {}).get("value") if first.get("fuzzy_hash") else ssdeep.hash(Path(args.first).read_bytes())
-    right = second.get("fuzzy_hash", {}).get("value") if second.get("fuzzy_hash") else ssdeep.hash(Path(args.second).read_bytes())
+    left = first.get("fuzzy_hash", {}).get("value") if first.get("fuzzy_hash") else ssdeep.hash(first_path.read_bytes())
+    right = second.get("fuzzy_hash", {}).get("value") if second.get("fuzzy_hash") else ssdeep.hash(second_path.read_bytes())
     score = ssdeep.compare(left, right)
     print(f"ssdeep similarity: {score}/100")
     print("Interpretation: similarity can support sample clustering; it does not prove shared lineage or maliciousness.")

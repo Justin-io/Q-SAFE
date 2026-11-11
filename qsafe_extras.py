@@ -83,10 +83,10 @@ def scan_archive_bytes(data: bytes, name: str, analyser, depth: int = 0, budget:
                         output.extend(scan_archive_bytes(contents, info.filename, analyser, depth + 1, budget))
         elif _is_tar_bytes(data):
             with tarfile.open(fileobj=io.BytesIO(data), mode="r:*") as archive:
-                members = archive.getmembers()
-                if len(members) > MAX_ARCHIVE_ENTRIES:
-                    return [{"member": name, "status": "entry-limit", "error": "archive contains too many entries"}]
-                for info in members:
+                for index, info in enumerate(archive):
+                    if index >= MAX_ARCHIVE_ENTRIES:
+                        output.append({"member": name, "status": "entry-limit", "error": "archive contains too many entries"})
+                        break
                     if not info.isfile():
                         continue
                     budget["members"] += 1
@@ -120,15 +120,22 @@ def _is_tar_bytes(data: bytes) -> bool:
     except (tarfile.TarError, OSError, EOFError):
         return False
 
+def _archive_paths(target: Path):
+    if target.is_file():
+        yield target
+        return
+    if target.is_dir():
+        for root, dirs, files in os.walk(target, topdown=True, followlinks=False):
+            dirs[:] = [name for name in dirs if name not in {".git", ".venv", "venv", "node_modules", "__pycache__"} and not (Path(root) / name).is_symlink()]
+            for name in files:
+                path = Path(root) / name
+                if not path.is_symlink():
+                    yield path
+
 def scan_archives(target: Path, analyser):
     """Scan archive members under target without extracting them."""
     found = []
-    paths = [target] if target.is_file() else (
-        path for root, dirs, files in os.walk(target, followlinks=False)
-        for path in [Path(root) / item for item in files]
-        if not (Path(root) / item).is_symlink()
-    )
-    for path in paths:
+    for path in _archive_paths(target):
         try:
             if path.is_symlink() or not path.is_file():
                 continue
@@ -155,9 +162,10 @@ def _run(argv: list[str], timeout: int = 60):
         return {"error": str(exc)}
 
 def run_yara(path: Path, rules: Path):
+    rules = rules.expanduser()
     if rules.is_symlink():
         return {"engine": "YARA", "status": "error", "error": "symbolic-link rules files are refused"}
-    rules = rules.expanduser().resolve()
+    rules = rules.resolve()
     if not rules.is_file():
         return {"engine": "YARA", "status": "error", "error": "rules path must be a regular file"}
     yara = shutil.which("yara")
@@ -241,8 +249,8 @@ def create_baseline(root: Path, output: Path):
         raise ValueError("baseline target must be a directory")
     records = {}
     skipped = []
-    for current, dirs, files in os.walk(root, followlinks=False):
-        dirs[:] = [name for name in dirs if not (Path(current) / name).is_symlink()]
+    for current, dirs, files in os.walk(root, topdown=True, followlinks=False):
+        dirs[:] = [name for name in dirs if name not in {".git", ".venv", "venv", "node_modules", "__pycache__"} and not (Path(current) / name).is_symlink()]
         for name in files:
             path = Path(current) / name
             if path.resolve() == output or path.is_symlink():
@@ -283,7 +291,11 @@ def check_baseline(root: Path, baseline: Path):
                 skipped.append({"path": rel, "error": str(exc)})
     added = sorted(current.keys() - expected.keys())
     removed = sorted(expected.keys() - current.keys())
-    changed = sorted(name for name in current.keys() & expected.keys() if current[name]["sha256"] != expected[name]["sha256"])
+    changed = sorted(
+        name for name in current.keys() & expected.keys()
+        if current[name]["sha256"] != expected[name]["sha256"]
+        or current[name]["mode"] != expected[name].get("mode")
+    )
     return {"root": str(root), "baseline_created_at": manifest.get("created_at"), "added": added, "removed": removed, "modified": changed, "skipped": skipped}
 
 def linux_runtime_findings(pid: int | None = None):
