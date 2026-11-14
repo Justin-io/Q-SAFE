@@ -18,3 +18,8 @@ The Linux runtime observer reads procfs metadata only. It does not read process 
 
 ## Response policy
 Q-SAFE does not automatically kill processes, disable networking, delete files, or change system policy. Quarantine requires a separate command and confirmation. This reduces the risk of turning an uncertain heuristic into destructive action. For enterprise containment, integrate with a managed EDR or a reviewed endpoint agent and require human approval for disruptive actions.
+
+
+## Reporting a vulnerability
+
+Please do not include live malware samples, credentials, personal data, or weaponized exploit instructions in a public issue. For sensitive reports, use GitHub's private vulnerability reporting feature for this repository (Security tab → Report a vulnerability), when enabled. Include the affected commit or release, affected component, safe reproduction steps, impact, and any mitigations. If private vulnerability reporting is unavailable, contact the repository maintainer through the contact method listed on the GitHub profile. Avoid testing against systems you do not own or have explicit permission to assess.
