@@ -1,5 +1,9 @@
 # Q-SAFE — Local-First Malware Triage & Defense
 
+[![Tests](https://github.com/Justin-io/Q-SAFE/actions/workflows/tests.yml/badge.svg)](https://github.com/Justin-io/Q-SAFE/actions/workflows/tests.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+Q-SAFE is an early-stage open-source defensive tool. It is not a certified antivirus product or production EDR. Detection quality has not been established by a published, independently reproducible held-out benchmark. See the evaluation guidance below before interpreting results.
+
 Q-SAFE is a defensive local-first file inspection tool. It combines static file-format inspection, entropy and packing indicators, suspicious API/string analysis, script heuristics, polling-based change monitoring, and SHA-256-verified quarantine.
 
 **It does not execute inspected samples and does not claim that a heuristic score proves malware.** Polymorphic malware mutates its representation; hashes and fixed signatures alone are insufficient. Q-SAFE therefore reports a *polymorphic candidate* only when executable-format and packing/entropy signals converge. That result is a triage lead, not proof.
